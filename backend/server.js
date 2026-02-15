@@ -14,6 +14,14 @@ const sheetName = "rawdata";
 const sheet = workbook.Sheets[sheetName];
 const rows = XLSX.utils.sheet_to_json(sheet);
 
+// extracting only what I need (referenceDate and dailyReturn)
+const cleanedData = rows.map(row => {
+  return {
+    date: formatDate(row.ReferenceDate),
+    dailyReturn: row.DailyReturn
+  };
+});
+
 
 // Health endpoint
 app.get("/health", (req, res) => {
