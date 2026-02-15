@@ -9,6 +9,11 @@ const filePath = path.join(__dirname, "data", "SoftwareInternAssignment.xlsx");
 
 const workbook = XLSX.readFile(filePath);
 
+// excel rows to JSON
+const sheetName = "rawdata";
+const sheet = workbook.Sheets[sheetName];
+const rows = XLSX.utils.sheet_to_json(sheet);
+
 
 // Health endpoint
 app.get("/health", (req, res) => {
