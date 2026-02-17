@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 
+
 // loading excel file
 const XLSX = require("xlsx");
 const path = require("path");
@@ -43,11 +44,30 @@ function formatParts(year, month, day) { // checks if 2 digits, if not, add 0 in
   return `${year}-${mm}-${dd}`; 
 }
 
+function computeTotalReturnSeries(data) {
+  let growth = 1; // start with $1
 
+  return data.map(row => {
+    const r = row.dailyReturn / 100;      // percent -> decimal
+    growth = growth * (1 + r);            // compound
+    const totalReturn = growth - 1;       // convert growth to total return
+
+    return {
+      ...row,
+      totalReturn
+    };
+  });
+}
+
+const withTotalReturn = computeTotalReturnSeries(cleanedData);
 
 // Health endpoint
 app.get("/health", (req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/returns", (req, res) => {
+  res.json(withTotalReturn);
 });
 
 app.listen(3000, () => {
