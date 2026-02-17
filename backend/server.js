@@ -61,13 +61,25 @@ function computeTotalReturnSeries(data) {
 
 const withTotalReturn = computeTotalReturnSeries(cleanedData);
 
-// Health endpoint
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
+// Returns full time series with metadata summary
+app.get("/api/series", (req, res) => {
+  const count = withTotalReturn.length;
+  const startDate = count > 0 ? withTotalReturn[0].date : null;
+  const endDate = count > 0 ? withTotalReturn[count - 1].date : null;
+
+  res.json({
+    meta: { count, startDate, endDate },
+    data: withTotalReturn
+  });
 });
 
 app.get("/returns", (req, res) => {
   res.json(withTotalReturn);
+});
+
+// Health endpoint
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
 });
 
 app.listen(3000, () => {
