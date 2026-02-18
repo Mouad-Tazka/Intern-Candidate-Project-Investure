@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
-import Plot from "react-plotly.js";
+import { useEffect, useState } from "react"; // React hooks: state (memory) + side-effects (fetching)
+import Plot from "react-plotly.js"; // Plotly React wrapper for interactive charts
 
 export default function App() {
+  // Base URL for API:
+  // - VITE_API_BASE_URL comes from frontend/.env.local
+  // - Fallback keeps the app working even if env var isn't set
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
   // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,7 +36,7 @@ export default function App() {
         if (start) params.set("start", start);
         if (end) params.set("end", end);
 
-        const url = `http://localhost:3000/api/series?${params.toString()}`;
+        const url = `${API_BASE_URL}/api/series?${params.toString()}`;
         const res = await fetch(url);
 
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
