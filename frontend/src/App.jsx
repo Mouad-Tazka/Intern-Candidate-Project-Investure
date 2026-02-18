@@ -1,79 +1,167 @@
-import { useEffect, useState } from "react"; // React hooks: useState = component memory, useEffect = run side-effects like fetching
+import { useEffect, useState } from "react";
+import Plot from "react-plotly.js";
 
 export default function App() {
-  // loading: whether we’re still waiting for the API response
+  // UI state
   const [loading, setLoading] = useState(true);
-
-  // error: store an error message if the fetch fails
   const [error, setError] = useState(null);
 
-  // meta: the API summary object { count, startDate, endDate }
+  // API response state
   const [meta, setMeta] = useState(null);
 
-  // rows: the big data array [{ date, dailyReturn, totalReturn }, ...]
+  // rows = ONLY the current page returned by the API
   const [rows, setRows] = useState([]);
 
-  // useEffect runs AFTER the first render (and after any re-render if dependencies change)
+  // pagination + date filters
+  const [limit, setLimit] = useState(25);
+  const [offset, setOffset] = useState(0);
+  const [start, setStart] = useState(""); // "YYYY-MM-DD"
+  const [end, setEnd] = useState("");     // "YYYY-MM-DD"
+
+  // Fetch whenever paging or filters change
   useEffect(() => {
-    // define an async function to fetch the data
     async function load() {
       try {
-        // we are starting a new request, so show loading state and clear old errors
         setLoading(true);
         setError(null);
 
-        // call backend endpoint
-        const res = await fetch("http://localhost:3000/api/series");
+        const params = new URLSearchParams();
+        params.set("limit", String(limit));
+        params.set("offset", String(offset));
+        if (start) params.set("start", start);
+        if (end) params.set("end", end);
 
-        // if the server responded with 4xx/5xx, treat it as an error
+        const url = `http://localhost:3000/api/series?${params.toString()}`;
+        const res = await fetch(url);
+
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 
-        // parse JSON body into a JS object: { meta: {...}, data: [...] }
         const json = await res.json();
-
-        // save the response into state (triggers a re-render)
         setMeta(json.meta);
         setRows(json.data);
       } catch (e) {
-        // if anything goes wrong (network down, CORS, bad response), show an error message
         setError(e.message || "Fetch failed");
       } finally {
         setLoading(false);
       }
     }
 
-    // actually run the async loader
     load();
-  }, []);
+  }, [limit, offset, start, end]);
 
-  // --- Render logic ---
-
-  // while fetching, show a loading message
+  // Render states
   if (loading) return <div style={{ padding: 16 }}>Loading…</div>;
-
-  // if fetch failed, show the error
   if (error) return <div style={{ padding: 16, color: "red" }}>Error: {error}</div>;
-
-  // if we somehow fetched but meta is missing, show a fallback
   if (!meta) return <div style={{ padding: 16 }}>No data</div>;
 
-  // take only the first 10 rows so we don’t render too many rows in a preview table
-  const preview = rows.slice(0, 10);
+  // Chart data (charts only current page; if you want full-range chart, we’ll change approach)
+  const x = rows.map((r) => r.date);
+  const y = rows.map((r) => r.totalReturn * 100);
 
-  // --- Main UI ---
+  const totalCount = meta.totalCount ?? meta.count ?? 0; // works with either backend version
+
   return (
     <div style={{ padding: 16 }}>
       <h1>Series Preview</h1>
 
-      {/* Meta summary section */}
+      {/* Meta summary */}
       <div style={{ marginBottom: 16 }}>
-        <div><b>Count:</b> {meta.count}</div>
+        <div><b>Total Count:</b> {totalCount}</div>
         <div><b>Start:</b> {meta.startDate}</div>
         <div><b>End:</b> {meta.endDate}</div>
       </div>
 
-      {/* Data preview table */}
-      <h2>First 10 rows</h2>
+      {/* Chart */}
+      <h2>Total Return Chart</h2>
+      <Plot
+        data={[
+          {
+            x,
+            y,
+            type: "scatter",
+            mode: "lines",
+            name: "Total Return (%)",
+            hovertemplate: "%{x}<br>%{y:.2f}%<extra></extra>",
+          },
+        ]}
+        layout={{
+          title: "S&P 500 Total Return (%) (Current Page)",
+          xaxis: { title: "Date" },
+          yaxis: { title: "Total Return (%)", ticksuffix: "%" },
+          margin: { l: 60, r: 20, t: 50, b: 50 },
+        }}
+        config={{
+          responsive: true,
+          scrollZoom: true,
+          displayModeBar: true,
+        }}
+        style={{ width: "100%", height: "500px" }}
+      />
+
+      {/* Controls */}
+      <h2>Table Controls</h2>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <label>
+          Rows per page:&nbsp;
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setOffset(0);
+            }}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </label>
+
+        <label>
+          Start:&nbsp;
+          <input
+            type="date"
+            value={start}
+            onChange={(e) => {
+              setStart(e.target.value);
+              setOffset(0);
+            }}
+          />
+        </label>
+
+        <label>
+          End:&nbsp;
+          <input
+            type="date"
+            value={end}
+            onChange={(e) => {
+              setEnd(e.target.value);
+              setOffset(0);
+            }}
+          />
+        </label>
+
+        <button
+          onClick={() => setOffset((o) => Math.max(0, o - limit))}
+          disabled={offset === 0}
+        >
+          Prev
+        </button>
+
+        <button
+          onClick={() => setOffset((o) => o + limit)}
+          disabled={offset + limit >= totalCount}
+        >
+          Next
+        </button>
+
+        <span>
+          Showing {totalCount === 0 ? 0 : offset + 1}–{Math.min(offset + limit, totalCount)} of {totalCount}
+        </span>
+      </div>
+
+      {/* Table */}
+      <h2>Rows</h2>
       <table border="1" cellPadding="8" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -82,15 +170,11 @@ export default function App() {
             <th>TotalReturn (decimal)</th>
           </tr>
         </thead>
-
         <tbody>
-          {/* map() turns each row into a <tr>. key helps React track updates efficiently */}
-          {preview.map((r) => (
+          {rows.map((r) => (
             <tr key={r.date}>
               <td>{r.date}</td>
               <td>{r.dailyReturn}</td>
-
-              {/* totalReturn is a decimal (e.g., 0.01779 = 1.779%). toFixed makes it readable */}
               <td>{Number(r.totalReturn).toFixed(6)}</td>
             </tr>
           ))}
