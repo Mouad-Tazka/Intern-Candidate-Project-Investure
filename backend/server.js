@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
-
+const cors = require("cors");
+app.use(cors());
 
 // loading excel file
 const XLSX = require("xlsx");
@@ -14,6 +15,12 @@ const workbook = XLSX.readFile(filePath, {cellDates: true}); // "Telling Excel: 
 const sheetName = "rawdata";
 const sheet = workbook.Sheets[sheetName];
 const rows = XLSX.utils.sheet_to_json(sheet);
+
+// Testing that I am actually reading the rawdata sheet & that Dates + dailyreturns look sane
+console.log("rows count:", rows.length);
+console.log("first row:", rows[0]);
+console.log("last row:", rows[rows.length - 1]);
+
 
 
 
@@ -61,17 +68,49 @@ function computeTotalReturnSeries(data) {
 
 const withTotalReturn = computeTotalReturnSeries(cleanedData);
 
+function toInt(value, defaultValue) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : defaultValue;
+}
+
+// Testing compounding logic matches the spreadsheet.
+console.log(withTotalReturn.slice(0, 10));
+
 // Returns full time series with metadata summary
 app.get("/api/series", (req, res) => {
-  const count = withTotalReturn.length;
-  const startDate = count > 0 ? withTotalReturn[0].date : null;
-  const endDate = count > 0 ? withTotalReturn[count - 1].date : null;
+  // Query params (all optional)
+  const limit = toInt(req.query.limit, 25);     // rows per page
+  const offset = toInt(req.query.offset, 0);    // starting index
+  const start = req.query.start || null;        // "YYYY-MM-DD"
+  const end = req.query.end || null;            // "YYYY-MM-DD"
+
+  // 1) Filter by date range
+  let filtered = withTotalReturn;
+  if (start) filtered = filtered.filter(r => r.date >= start);
+  if (end) filtered = filtered.filter(r => r.date <= end);
+
+  // 2) Paginate
+  const pageData = filtered.slice(offset, offset + limit);
+
+  // 3) Meta
+  const totalCount = filtered.length;
+  const startDate = totalCount > 0 ? filtered[0].date : null;
+  const endDate = totalCount > 0 ? filtered[totalCount - 1].date : null;
 
   res.json({
-    meta: { count, startDate, endDate },
-    data: withTotalReturn
+    meta: {
+      totalCount,
+      limit,
+      offset,
+      start,
+      end,
+      startDate,
+      endDate
+    },
+    data: pageData
   });
 });
+
 
 app.get("/returns", (req, res) => {
   res.json(withTotalReturn);
@@ -82,6 +121,10 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+// if the computer/deployment gives me a port, use it, otherwise default to 3000
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
