@@ -62,7 +62,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 16 }}>
-      <h1>Series Preview</h1>
+      <h1>Intern Candidate Project - Mouad Tazka</h1>
 
       {/* Meta summary */}
       <div style={{ marginBottom: 16 }}>
