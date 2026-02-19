@@ -59,7 +59,7 @@ export default function App() {
   if (error) return <div style={{ padding: 16, color: "red" }}>Error: {error}</div>;
   if (!meta) return <div style={{ padding: 16 }}>No data</div>;
 
-  // Chart data (charts only current page; if you want full-range chart, we’ll change approach)
+  // Chart data (charts only current page)
   const x = rows.map((r) => r.date);
   const y = rows.map((r) => r.totalReturn * 100);
 
@@ -71,9 +71,9 @@ export default function App() {
 
       {/* Meta summary */}
       <div style={{ marginBottom: 16 }}>
-        <div><b>Total Count:</b> {totalCount}</div>
-        <div><b>Start:</b> {meta.startDate}</div>
-        <div><b>End:</b> {meta.endDate}</div>
+        <div><b>Total Count:</b> <span data-testid="meta-totalCount">{totalCount}</span></div>
+        <div><b>Start:</b> <span data-testid="meta-startDate">{meta.startDate}</span></div>
+        <div><b>End:</b> <span data-testid="meta-endDate">{meta.endDate}</span></div>
       </div>
 
       {/* Chart */}
